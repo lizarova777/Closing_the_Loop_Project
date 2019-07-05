@@ -1,0 +1,114 @@
+---
+title: "Tweet Visualization Report"
+author: "Anna Lizarov"
+date: "April 17, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+## Libraries
+library(knitr)
+library(ROAuth)
+library(RCurl)
+library(twitteR)
+library(tm)
+library(SnowballC)
+library(wordcloud)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(topicmodels)
+```
+
+
+```{r, echo=FALSE}
+#Retrieve dataset
+api_key <- "RnhYRzliMMMYdRp4jWuMiGjMf"
+
+api_secret <- "yeSXoplf1WBjDb8Thp3F9CdD9TG6YMTMBHKvMKYdVjHrAuIqfR"
+
+access_token <- "1077379400486801408-1ZJTBstzn4zsOYV4hZgroAWrj5DKFa"
+
+access_token_secret <- "CtwIjdjcvwEXvvomeLGkRFXs7e7fkqGOt1H6Sr6Zq6saZ"
+
+setup_twitter_oauth(api_key, api_secret, access_token, access_token_secret)
+
+today = as.character(Sys.Date())
+WeekBack = as.character(Sys.Date() - 7)
+TL <- searchTwitter("learning analytics", n=50, since=WeekBack, until=today)#Make sure you change the dates here to be 6 days from today.
+TL <- do.call("rbind", lapply(TL, as.data.frame))
+```
+
+```{r, echo=FALSE}
+counts=table(TL$screenName)
+barplot(counts, las=2)
+
+#By time of day
+hist(TL$created, breaks = "h", main = "Histogram of Time of Tweets")
+```
+
+### Line Graph of Tweets Over Time 
+```{r, echo=FALSE}
+g <- ggplot(TL, aes(created)) + geom_freqpoly(color = "blue") + labs(title = "Frequency of Tweets", x = "Time", y = "Frequency" ) +theme_classic()
+g
+```
+
+### Bar Graph of ReTweets For Each User 
+```{r, echo=FALSE}
+TL$retweetCount = as.integer(TL$retweetCount)
+g1 <- ggplot(TL, aes(screenName, retweetCount)) + geom_col(stat="identity", fill= "red")  + labs(title = "Frequency of ReTweets For Each User", x = "User Screen Name", y = "Frequency of ReTweets" ) + theme_classic() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+g1
+```
+
+### Bar Graph of Favorite Count for Each User
+```{r, echo=FALSE}
+TL$favoriteCount = as.integer(TL$favoriteCount)
+g2 <- ggplot(TL, aes(screenName, favoriteCount, fill=retweetCount)) + geom_col(stat="identity") + labs(title = "Frequency of Favorite Tweets For Each User", x = "User Screen Name", y = "Frequency of Favorite Tweets" )+ guides(fill=guide_legend(title= "ReTweet Count")) + theme_classic() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+g2
+```
+
+
+### Word Cloud
+```{r, echo=FALSE}
+#### Natural Language Processing
+# Clean the text
+TL$text = gsub("http.*","",TL$text)
+TL$text <- gsub("<.*?>", "", TL$text)
+TL$text <- gsub("nbsp", "" , TL$text)
+TL$text <- gsub("nbspnbspnbsp", "" , TL$text)
+
+#Convert the data frame to the corpus format that the tm package uses
+corpus <-VCorpus(VectorSource(TL$text))
+#Remove spaces
+corpus <- tm_map(corpus, stripWhitespace)
+#Convert to lower case
+corpus <- tm_map(corpus, tolower)
+#Remove pre-defined stop words ('the', 'a', etc)
+corpus <- tm_map(corpus, removeWords, stopwords('english'))
+#Convert words to stems  
+corpus <- tm_map(corpus, stemDocument)
+#Remove numbers
+corpus <- tm_map(corpus, removeNumbers)
+#remove punctuation
+corpus <- tm_map(corpus, removePunctuation)
+#Convert to plain text for mapping by wordcloud package
+corpus <- tm_map(corpus, PlainTextDocument, lazy = TRUE)
+
+#Convert corpus to a term document matrix - so each word can be analyzed individuallly
+tdm.corpus <- TermDocumentMatrix(corpus)
+
+#The tm package can do some simple analysis, like find the most common words
+findFreqTerms(tdm.corpus, lowfreq=50, highfreq=Inf)
+#We can also create a vector of the word frequencies
+word.count <- sort(rowSums(as.matrix(tdm.corpus)), decreasing=TRUE)
+word.count <- data.frame(word.count)
+
+### Word Cloud
+#Define the colors the cloud will use
+col=brewer.pal(6,"Dark2")
+#Generate cloud
+wordcloud(corpus, min.freq=80, scale=c(5,2),rot.per = 0.25,
+          random.color=T, max.word=45, random.order=F,colors=col)
+```
+
