@@ -19,6 +19,7 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(topicmodels)
+library(cowplot)
 ```
 
 
@@ -66,6 +67,13 @@ g1
 TL$favoriteCount = as.integer(TL$favoriteCount)
 g2 <- ggplot(TL, aes(screenName, favoriteCount, fill=retweetCount)) + geom_col(stat="identity") + labs(title = "Frequency of Favorite Tweets For Each User", x = "User Screen Name", y = "Frequency of Favorite Tweets" )+ guides(fill=guide_legend(title= "ReTweet Count")) + theme_classic() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
 g2
+```
+
+## Side-by-Side Visualizations
+```{r}
+png("Visualizations.png", width = 1100, height = 900)
+plot_grid(g,g1,g2, ncol=2,nrow=2)
+dev.off()
 ```
 
 
